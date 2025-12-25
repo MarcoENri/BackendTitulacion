@@ -1,0 +1,61 @@
+server:
+  port: 8081
+  error:
+    include-message: always
+
+spring:
+  flyway:
+    enabled: true
+    baseline-version: 1
+    baseline-on-migrate: true
+    locations:
+      - classpath:db/migration
+    sql-migration-prefix: V
+    sql-migration-suffixes: .sql
+    schemas:
+      - public
+
+  datasource:
+    url: "jdbc:postgresql://ep-misty-cake-ah6z7ofm-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    username: neondb_owner
+    password: npg_meTr6nCMbqB7
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 50MB
+
+  web:
+    resources:
+      add-mappings: true
+      cache:
+        period: 3600
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.example.Aplicativo_web: DEBUG
+
+# ✅ SOLO UN BLOQUE app:
+app:
+  upload:
+    questions-dir: uploads/questions
+
+  jwt:
+    secret: "CAMBIA_ESTE_SECRETO_LARGO_12345678901234567890"
+    issuer: "Aplicativo_web"
+    access-token-minutes: 60
+
+  seed:
+    admin:
+      username: admin
+      password: Admin123*

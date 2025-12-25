@@ -1,0 +1,13 @@
+package com.example.Aplicativo_web.entity
+
+import jakarta.persistence.*
+
+@Entity
+@Table(name = "career")
+class CareerEntity(
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    var id: Long? = null,
+
+    @Column(nullable = false, unique = true)
+    var name: String = ""
+)
