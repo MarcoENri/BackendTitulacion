@@ -15,6 +15,7 @@ interface AppUserRepository : JpaRepository<AppUserEntity, Long> {
         where u.username = :username
     """)
     fun findByUsernameWithRoles(@Param("username") username: String): Optional<AppUserEntity>
+    fun findByUsername(username: String): AppUserEntity?
 
     fun existsByUsername(username: String): Boolean
 }

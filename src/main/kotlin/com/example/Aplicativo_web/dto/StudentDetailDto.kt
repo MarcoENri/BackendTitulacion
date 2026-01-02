@@ -1,5 +1,7 @@
 package com.example.Aplicativo_web.dto
 
+import java.time.LocalDateTime
+
 data class StudentDetailDto(
     val id: Long,
     val dni: String,
@@ -12,6 +14,11 @@ data class StudentDetailDto(
     val career: String,
     val titulationType: String,
     val status: String,
+
+    val tutorId: Long?,
+    val coordinatorId: Long?,
+    val thesisProject: String?,
+    val thesisProjectSetAt: LocalDateTime?,
 
     val incidentCount: Long,
     val observationCount: Long,

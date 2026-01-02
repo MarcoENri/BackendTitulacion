@@ -1,7 +1,9 @@
 server:
   port: 8081
+  address: 0.0.0.0
   error:
     include-message: always
+
 
 spring:
   flyway:
@@ -53,7 +55,7 @@ app:
   jwt:
     secret: "CAMBIA_ESTE_SECRETO_LARGO_12345678901234567890"
     issuer: "Aplicativo_web"
-    access-token-minutes: 60
+    access-token-minutes: 10080
 
   seed:
     admin:

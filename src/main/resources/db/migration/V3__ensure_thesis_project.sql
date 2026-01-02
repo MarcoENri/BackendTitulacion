@@ -1,0 +1,2 @@
+ALTER TABLE student
+    ADD COLUMN IF NOT EXISTS thesis_project VARCHAR(255);

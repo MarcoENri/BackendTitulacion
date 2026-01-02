@@ -42,6 +42,24 @@ class StudentEntity(
     @JoinColumn(name = "career_id", nullable = false)
     var career: CareerEntity? = null,
 
+    // ✅ NUEVO: Tutor asignado
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tutor_id")
+    var tutor: AppUserEntity? = null,
+
+    // ✅ NUEVO: Coordinador asignado (quien gestiona al estudiante)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coordinator_id")
+    var coordinator: AppUserEntity? = null,
+
+    // ✅ NUEVO: Proyecto elegido
+    @Column(name = "thesis_project")
+    var thesisProject: String? = null,
+
+    // ✅ NUEVO: Fecha cuando se asignó el proyecto
+    @Column(name = "thesis_project_set_at")
+    var thesisProjectSetAt: LocalDateTime? = null,
+
     @Column(name = "created_at")
     var createdAt: LocalDateTime? = null,
 

@@ -18,7 +18,7 @@ class AdminStudentDetailService(
         val s = studentRepo.findById(studentId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no encontrado") }
 
-        val incidents = incidentRepo.findAllByStudentId(studentId).map {
+        val incidents = incidentRepo.findAllByStudent_Id(studentId).map {
             IncidentDto(
                 id = it.id!!,
                 stage = it.stage,
@@ -30,7 +30,7 @@ class AdminStudentDetailService(
             )
         }
 
-        val observations = observationRepo.findAllByStudentId(studentId).map {
+        val observations = observationRepo.findAllByStudent_Id(studentId).map {
             ObservationDto(
                 id = it.id!!,
                 author = it.author,
@@ -52,10 +52,18 @@ class AdminStudentDetailService(
             career = s.career?.name ?: "N/A",
             titulationType = s.titulationType,
             status = s.status,
-            incidentCount = incidentRepo.countByStudentId(studentId),
-            observationCount = observationRepo.countByStudentId(studentId),
+
+            // ✅ NUEVO (V2)
+            tutorId = s.tutor?.id,
+            coordinatorId = s.coordinator?.id,
+            thesisProject = s.thesisProject,
+            thesisProjectSetAt = s.thesisProjectSetAt,
+
+            incidentCount = incidentRepo.countByStudent_Id(studentId),
+            observationCount = observationRepo.countByStudent_Id(studentId),
             incidents = incidents,
             observations = observations
         )
+
     }
 }

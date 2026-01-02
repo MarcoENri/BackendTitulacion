@@ -28,8 +28,8 @@ class AdminStudentService(
                 career = s.career?.name ?: "N/A",
                 titulationType = s.titulationType,
                 status = s.status,
-                incidentCount = incidentRepo.countByStudentId(id),
-                observationCount = observationRepo.countByStudentId(id)
+                incidentCount = incidentRepo.countByStudent_Id(id),
+                observationCount = observationRepo.countByStudent_Id(id)
             )
         }
     }
