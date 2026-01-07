@@ -4,7 +4,6 @@ server:
   error:
     include-message: always
 
-
 spring:
   flyway:
     enabled: true
@@ -42,12 +41,37 @@ spring:
       cache:
         period: 3600
 
+  # =========================
+  # ✉️ CONFIGURACIÓN DE EMAIL
+  # =========================
+  mail:
+    protocol: smtp
+    host: smtp.gmail.com
+    port: 587
+    username: "TU_CORREO@gmail.com"
+    password: "TU_APP_PASSWORD"   # ✅ App Password (NO tu password normal)
+    properties:
+      mail:
+        debug: true               # ✅ ver conversación smtp
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000 # ✅ evita “colgadas”
+          timeout: 5000
+          writetimeout: 5000
+
 logging:
   level:
     org.springframework.security: DEBUG
     com.example.Aplicativo_web: DEBUG
+    org.springframework.mail: DEBUG
+    org.springframework.mail.javamail: DEBUG
+    com.sun.mail: DEBUG
 
-# ✅ SOLO UN BLOQUE app:
+# =========================
+# CONFIGURACIÓN DE LA APP
+# =========================
 app:
   upload:
     questions-dir: uploads/questions
@@ -61,3 +85,7 @@ app:
     admin:
       username: admin
       password: Admin123*
+
+  mail:
+    from: "TU_CORREO@gmail.com"
+    enabled: true

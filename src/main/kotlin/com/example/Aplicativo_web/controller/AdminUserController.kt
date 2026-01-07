@@ -14,14 +14,20 @@ class AdminUserController(
     private val adminUserService: AdminUserService
 ) {
 
-    // ✅ Crear usuario con roles
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     fun create(@RequestBody req: CreateUserRequest): ResponseEntity<UserResponse> {
         return ResponseEntity.ok(adminUserService.createUser(req))
     }
 
-    // ✅ Asignar carreras (user_career)
+    // ✅ NUEVO: listar usuarios (opcionalmente filtrados por rol)
+    // Ej: /admin/users?role=ROLE_TUTOR
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    fun listUsers(@RequestParam(required = false) role: String?): ResponseEntity<List<UserResponse>> {
+        return ResponseEntity.ok(adminUserService.listUsers(role))
+    }
+
     @PostMapping("/{id}/careers")
     @PreAuthorize("hasRole('ADMIN')")
     fun assignCareers(

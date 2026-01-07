@@ -11,38 +11,25 @@ import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDateTime
 
 @Service
-class CoordinatorStudentsService(
+class TutorStudentsService(
     private val userRepo: AppUserRepository,
-    private val userCareerRepo: UserCareerRepository,
     private val studentRepo: StudentRepository,
     private val incidentRepo: IncidentRepository,
     private val observationRepo: ObservationRepository
 ) {
 
-    // -----------------------
-    // helpers
-    // -----------------------
-    private fun getCoordinator(username: String) =
+    private fun getTutor(username: String) =
         userRepo.findByUsername(username)
             ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no existe")
-
-    private fun ensureCanManageStudent(coordinatorId: Long, studentCareerId: Long) {
-        val allowed = userCareerRepo.findCareerIdsByUserId(coordinatorId)
-        if (!allowed.contains(studentCareerId)) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes gestionar estudiantes de otra carrera")
-        }
-    }
 
     // -----------------------
     // LIST
     // -----------------------
     fun listMyStudents(username: String): List<Map<String, Any?>> {
-        val user = getCoordinator(username)
+        val tutor = getTutor(username)
+        val students = studentRepo.findAllByTutorId(tutor.id!!)
 
-        val careerIds = userCareerRepo.findCareerIdsByUserId(user.id!!)
-        if (careerIds.isEmpty()) return emptyList()
-
-        return studentRepo.findAllByCareerIds(careerIds).map { s ->
+        return students.map { s ->
             mapOf(
                 "id" to s.id,
                 "dni" to s.dni,
@@ -55,36 +42,24 @@ class CoordinatorStudentsService(
                 "career" to s.career?.name,
                 "titulationType" to s.titulationType,
                 "status" to s.status,
-
-                // ✅ IDs
-                "tutorId" to s.tutor?.id,
                 "coordinatorId" to s.coordinator?.id,
-
-                // ✅ NUEVO: nombres (para que el frontend muestre fullName y no el id)
-                "tutorName" to s.tutor?.fullName,
-                "tutorUsername" to s.tutor?.username,
-                "coordinatorName" to s.coordinator?.fullName,
-                "coordinatorUsername" to s.coordinator?.username,
-
+                "tutorId" to s.tutor?.id,
                 "thesisProject" to s.thesisProject,
-                "thesisProjectSetAt" to s.thesisProjectSetAt
+                "thesisProjectSetAt" to s.thesisProjectSetAt,
+                "incidentCount" to incidentRepo.countByStudent_Id(s.id!!),
+                "observationCount" to observationRepo.countByStudent_Id(s.id!!)
             )
         }
     }
 
     // -----------------------
-    // DETAIL
+    // DETAIL (solo si pertenece al tutor)
     // -----------------------
     fun getDetail(username: String, studentId: Long): StudentDetailDto {
-        val user = getCoordinator(username)
+        val tutor = getTutor(username)
 
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(user.id!!, careerId)
+        val student = studentRepo.findByIdAndTutor_Id(studentId, tutor.id!!)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes ver un estudiante que no es tuyo")
 
         val incidents = incidentRepo.findAllByStudent_Id(studentId).map {
             IncidentDto(
@@ -134,45 +109,14 @@ class CoordinatorStudentsService(
     }
 
     // -----------------------
-    // ASSIGN PROJECT + TUTOR
-    // -----------------------
-    @Transactional
-    fun assignProject(username: String, studentId: Long, req: AssignProjectRequest) {
-        val coordinator = getCoordinator(username)
-
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(coordinator.id!!, careerId)
-
-        val tutor = userRepo.findById(req.tutorId)
-            .orElseThrow { ResponseStatusException(HttpStatus.BAD_REQUEST, "Tutor no existe") }
-
-        student.thesisProject = req.projectName.trim()
-        student.thesisProjectSetAt = LocalDateTime.now()
-        student.tutor = tutor
-        student.coordinator = coordinator
-
-        studentRepo.save(student)
-    }
-
-    // -----------------------
-    // CREATE INCIDENT (max 3 => REPROBADO)
+    // CREATE INCIDENT
     // -----------------------
     @Transactional
     fun createIncident(username: String, studentId: Long, req: CreateIncidentRequest) {
-        val coordinator = getCoordinator(username)
+        val tutor = getTutor(username)
 
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(coordinator.id!!, careerId)
+        val student = studentRepo.findByIdAndTutor_Id(studentId, tutor.id!!)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes gestionar incidencias de un estudiante que no es tuyo")
 
         val incident = IncidentEntity(
             student = student,
@@ -181,10 +125,11 @@ class CoordinatorStudentsService(
             reason = req.reason.trim(),
             action = req.action.trim(),
             createdAt = LocalDateTime.now(),
-            createdByUserId = coordinator.id
+            createdByUserId = tutor.id
         )
         incidentRepo.save(incident)
 
+        // ✅ misma regla que coordinador: 3 incidencias => REPROBADO
         val count = incidentRepo.countByStudent_Id(studentId)
         if (count >= 3 && student.status != "REPROBADO") {
             student.status = "REPROBADO"
@@ -198,22 +143,17 @@ class CoordinatorStudentsService(
     // -----------------------
     @Transactional
     fun createObservation(username: String, studentId: Long, req: CreateObservationRequest) {
-        val coordinator = getCoordinator(username)
+        val tutor = getTutor(username)
 
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(coordinator.id!!, careerId)
+        val student = studentRepo.findByIdAndTutor_Id(studentId, tutor.id!!)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes registrar observaciones de un estudiante que no es tuyo")
 
         val obs = ObservationEntity(
             student = student,
-            author = coordinator.fullName,
+            author = tutor.fullName,     // ✅ el nombre del tutor
             text = req.text.trim(),
             createdAt = LocalDateTime.now(),
-            authorUserId = coordinator.id
+            authorUserId = tutor.id
         )
         observationRepo.save(obs)
     }

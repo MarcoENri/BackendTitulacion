@@ -32,6 +32,7 @@ class SecurityConfig(
                 auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers("/auth/**").permitAll()
+                    .requestMatchers("/error").permitAll()
                     .anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)

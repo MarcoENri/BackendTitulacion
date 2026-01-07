@@ -16,4 +16,8 @@ interface StudentRepository : JpaRepository<StudentEntity, Long> {
         order by s.lastName asc, s.firstName asc
     """)
     fun findAllByCareerIds(@Param("careerIds") careerIds: List<Long>): List<StudentEntity>
+    fun findAllByCareerId(careerId: Long): List<StudentEntity>
+    fun findAllByCareerIdAndCoordinatorIsNull(careerId: Long): List<StudentEntity>
+    fun findAllByTutorId(tutorId: Long): List<StudentEntity>
+    fun findByIdAndTutor_Id(studentId: Long, tutorId: Long): StudentEntity?
 }

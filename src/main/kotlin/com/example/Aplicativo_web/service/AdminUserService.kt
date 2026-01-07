@@ -28,30 +28,42 @@ class AdminUserService(
     private val careerRepo: CareerRepository
 ) {
 
-    // ✅ Crear usuario + asignar roles
+    // ==========================
+    // CREAR USUARIO
+    // ==========================
     @Transactional
     fun createUser(req: CreateUserRequest): UserResponse {
-        if (userRepo.existsByUsername(req.username)) {
+
+        val username = req.username.trim().lowercase()
+        val email = req.email.trim().lowercase()
+
+        if (userRepo.existsByUsername(username)) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "El username ya existe")
         }
 
+        if (userRepo.existsByEmail(email)) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "El correo ya está registrado")
+        }
+
         val user = AppUserEntity(
-            username = req.username.trim(),
+            username = username,
             password = passwordEncoder.encode(req.password),
             fullName = req.fullName.trim(),
-            email = req.email.trim(),
+            email = email,
             enabled = true,
             createdAt = LocalDateTime.now()
         )
 
         val saved = userRepo.save(user)
 
-        val roleEntities = req.roles.distinct().map { roleName ->
+        val roles = req.roles.distinct().map { roleName ->
             roleRepo.findByName(roleName)
-                .orElseThrow { ResponseStatusException(HttpStatus.BAD_REQUEST, "Rol no existe: $roleName") }
+                .orElseThrow {
+                    ResponseStatusException(HttpStatus.BAD_REQUEST, "Rol no existe: $roleName")
+                }
         }
 
-        roleEntities.forEach { role ->
+        roles.forEach { role ->
             saved.roles.add(
                 UserRoleEntity(
                     id = UserRoleId(saved.id, role.id),
@@ -73,40 +85,60 @@ class AdminUserService(
         )
     }
 
-    // ✅ Asignar carreras a un usuario (COORDINATOR / TUTOR)
+    // ==========================
+    // LISTAR USUARIOS (por rol)
+    // ==========================
+    @Transactional(readOnly = true)
+    fun listUsers(role: String?): List<UserResponse> {
+        val users = if (role.isNullOrBlank()) {
+            userRepo.findAll()
+        } else {
+            // ✅ CLAVE: traer con roles cargados
+            userRepo.findAllByRoleNameWithRoles(role)
+        }
+
+        return users.map { u ->
+            UserResponse(
+                id = u.id!!,
+                username = u.username,
+                fullName = u.fullName,
+                email = u.email,
+                enabled = u.enabled,
+                roles = u.roles.mapNotNull { ur -> ur.role?.name }
+            )
+        }
+    }
+
+    // ==========================
+    // ASIGNAR CARRERAS A USUARIO
+    // ==========================
     @Transactional
     fun assignCareers(userId: Long, req: AssignCareersRequest) {
+
         val user = userRepo.findById(userId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no existe") }
 
         val careerIds = req.careerIds.distinct()
 
-        // si mandan lista vacía, se interpreta como "quitar todas"
         if (careerIds.isEmpty()) {
             userCareerRepo.deleteAllByUserId(user.id!!)
             return
         }
 
-        // validar carreras existen (trae entidades CareerEntity)
         val careers = careerRepo.findAllById(careerIds).associateBy { it.id!! }
         if (careers.size != careerIds.size) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Una o más carreras no existen")
         }
 
-        // reemplazar asignaciones anteriores
         userCareerRepo.deleteAllByUserId(user.id!!)
 
-        // ✅ Guardar usando EmbeddedId + relaciones
         careerIds.forEach { cid ->
             val career = careers[cid]
                 ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Carrera no existe: $cid")
 
             userCareerRepo.save(
                 UserCareerEntity(
-                    id = UserCareerId(
-                        userId = user.id!!,
-                        careerId = career.id!!
-                    ),
+                    id = UserCareerId(user.id!!, career.id!!),
                     user = user,
                     career = career
                 )
