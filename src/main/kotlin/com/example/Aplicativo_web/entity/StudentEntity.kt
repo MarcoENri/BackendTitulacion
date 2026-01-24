@@ -1,12 +1,15 @@
 package com.example.Aplicativo_web.entity
 
+import com.example.Aplicativo_web.entity.enums.StudentStatus
 import jakarta.persistence.*
 import java.time.LocalDateTime
 
 @Entity
 @Table(name = "student")
 class StudentEntity(
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 
     @Column(nullable = false, unique = true)
@@ -32,8 +35,10 @@ class StudentEntity(
     @Column(name = "titulation_type", nullable = false)
     var titulationType: String = "EXAMEN",
 
+    // ✅ CAMBIO IMPORTANTE
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var status: String = "EN_CURSO",
+    var status: StudentStatus = StudentStatus.EN_CURSO,
 
     @Column(name = "not_apt_reason")
     var notAptReason: String? = null,
@@ -42,21 +47,23 @@ class StudentEntity(
     @JoinColumn(name = "career_id", nullable = false)
     var career: CareerEntity? = null,
 
-    // ✅ NUEVO: Tutor asignado
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tutor_id")
     var tutor: AppUserEntity? = null,
 
-    // ✅ NUEVO: Coordinador asignado (quien gestiona al estudiante)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_period_id")
+    var academicPeriod: AcademicPeriodEntity? = null,
+
+
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coordinator_id")
     var coordinator: AppUserEntity? = null,
 
-    // ✅ NUEVO: Proyecto elegido
     @Column(name = "thesis_project")
     var thesisProject: String? = null,
 
-    // ✅ NUEVO: Fecha cuando se asignó el proyecto
     @Column(name = "thesis_project_set_at")
     var thesisProjectSetAt: LocalDateTime? = null,
 
@@ -65,4 +72,5 @@ class StudentEntity(
 
     @Column(name = "updated_at")
     var updatedAt: LocalDateTime? = null
+
 )

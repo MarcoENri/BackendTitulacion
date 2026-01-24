@@ -1,5 +1,5 @@
 package com.example.Aplicativo_web.dto
 
 data class AssignCareersRequest(
-    val careerIds: List<Long>
+    val careerIds: List<Long> = emptyList()
 )

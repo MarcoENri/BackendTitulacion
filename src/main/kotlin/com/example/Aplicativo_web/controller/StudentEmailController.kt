@@ -25,7 +25,7 @@ class StudentEmailController(
             studentId = studentId,
             subject = req.subject,
             body = req.body,
-            senderUsername = auth.name
+            senderUsernameOrEmail = auth.name
         )
         return ResponseEntity.ok(SendStudentEmailResponse(status = "SENT"))
     }

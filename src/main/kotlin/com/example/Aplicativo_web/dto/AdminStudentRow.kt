@@ -9,9 +9,13 @@ data class AdminStudentRow(
     val corte: String,
     val section: String,
     val modality: String?,
-    val career: String,
+
+    val career: String,        // ✅ se mantiene (no rompe nada)
+    val careerId: Long?,       // ✅ NUEVO (clave para el frontend)
+
     val titulationType: String,
     val status: String,
     val incidentCount: Long,
-    val observationCount: Long
+    val observationCount: Long,
+    val academicPeriodName: String
 )

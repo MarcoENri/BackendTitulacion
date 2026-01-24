@@ -8,6 +8,18 @@ class CareerEntity(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 
-    @Column(nullable = false, unique = true)
-    var name: String = ""
+    // 👇 QUITA unique=true aquí (la unicidad debe ser por normalized_name)
+    @Column(nullable = false)
+    var name: String = "",
+
+    @Column(name = "cover_image")
+    var coverImage: String? = null,
+
+    @Column(name = "color")
+    var color: String? = null,
+
+    // 👇 Pon default "" para que JPA no falle si se instancia vacío
+    //    (igual tu import lo setea bien siempre)
+    @Column(name = "normalized_name", nullable = false)
+    var normalizedName: String = ""
 )

@@ -7,22 +7,31 @@ import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.core.userdetails.UsernameNotFoundException
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class CustomUserDetailsService(
     private val userRepo: AppUserRepository
 ) : UserDetailsService {
 
-    override fun loadUserByUsername(username: String): UserDetails {
-        val user = userRepo.findByUsernameWithRoles(username)
-            .orElseThrow { UsernameNotFoundException("Usuario no encontrado: $username") }
+    @Transactional(readOnly = true)
+    override fun loadUserByUsername(input: String): UserDetails {
+
+        val user = userRepo.findByUsernameOrEmailWithRoles(input)
+            .orElseThrow {
+                UsernameNotFoundException("Usuario o correo no encontrado: $input")
+            }
 
         val authorities = user.roles
             .mapNotNull { it.role?.name }
-            .map { SimpleGrantedAuthority("ROLE_$it") }
+            .map { roleName ->
+                val normalized =
+                    if (roleName.startsWith("ROLE_")) roleName else "ROLE_$roleName"
+                SimpleGrantedAuthority(normalized)
+            }
 
         return User(
-            user.username,
+            user.username,   // identidad interna
             user.password,
             user.enabled,
             true,

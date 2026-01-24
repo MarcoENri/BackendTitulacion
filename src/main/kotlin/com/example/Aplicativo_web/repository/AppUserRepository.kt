@@ -8,6 +8,35 @@ import java.util.Optional
 
 interface AppUserRepository : JpaRepository<AppUserEntity, Long> {
 
+    // --- Basic Lookups (Case Insensitive for better UX) ---
+
+    fun findByUsernameIgnoreCase(username: String): Optional<AppUserEntity>
+
+    fun findByEmailIgnoreCase(email: String): Optional<AppUserEntity>
+
+    fun findByUsernameIgnoreCaseOrEmailIgnoreCase(username: String, email: String): Optional<AppUserEntity>
+
+    // --- Validation Checks ---
+
+    fun existsByUsername(username: String): Boolean
+
+    fun existsByEmail(email: String): Boolean
+
+    @Query("""
+    select u from AppUserEntity u
+    left join fetch u.roles ur
+    left join fetch ur.role r
+    where lower(u.username) = lower(:input)
+       or lower(u.email) = lower(:input)
+""")
+    fun findByUsernameOrEmailWithRoles(@Param("input") input: String): Optional<AppUserEntity>
+
+
+    // --- Advanced Queries (Optimized for Relationships) ---
+
+    /* fetches user + roles + role details in a single query.
+       Crucial for Spring Security UserDetailsService to avoid LazyInitializationException.
+    */
     @Query("""
         select u from AppUserEntity u
         left join fetch u.roles ur
@@ -16,9 +45,9 @@ interface AppUserRepository : JpaRepository<AppUserEntity, Long> {
     """)
     fun findByUsernameWithRoles(@Param("username") username: String): Optional<AppUserEntity>
 
-    fun findByUsername(username: String): AppUserEntity?
-
-    // ✅ NUEVO: trae usuarios por rol con roles cargados (evita LazyInitialization / /error)
+    /* Trae usuarios por rol específico.
+       Uses 'distinct' to avoid duplicate user rows due to the join.
+    */
     @Query("""
         select distinct u from AppUserEntity u
         join fetch u.roles ur
@@ -26,7 +55,4 @@ interface AppUserRepository : JpaRepository<AppUserEntity, Long> {
         where r.name = :roleName
     """)
     fun findAllByRoleNameWithRoles(@Param("roleName") roleName: String): List<AppUserEntity>
-
-    fun existsByUsername(username: String): Boolean
-    fun existsByEmail(email: String): Boolean
 }

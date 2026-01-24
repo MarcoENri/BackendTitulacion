@@ -1,0 +1,7 @@
+package com.example.Aplicativo_web.repository
+
+import com.example.Aplicativo_web.entity.PredefenseBookingJuryEntity
+import com.example.Aplicativo_web.entity.PredefenseBookingJuryId
+import org.springframework.data.jpa.repository.JpaRepository
+
+interface PredefenseBookingJuryRepository : JpaRepository<PredefenseBookingJuryEntity, PredefenseBookingJuryId>

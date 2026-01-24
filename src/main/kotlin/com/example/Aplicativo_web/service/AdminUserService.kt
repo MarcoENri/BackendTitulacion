@@ -29,7 +29,7 @@ class AdminUserService(
 ) {
 
     // ==========================
-    // CREAR USUARIO
+    // CREAR USUARIO (CON CARRERAS)
     // ==========================
     @Transactional
     fun createUser(req: CreateUserRequest): UserResponse {
@@ -56,7 +56,13 @@ class AdminUserService(
 
         val saved = userRepo.save(user)
 
-        val roles = req.roles.distinct().map { roleName ->
+        // ✅ Aceptar roles con o sin prefijo ROLE_
+        val normalizedRoles = req.roles
+            .distinct()
+            .map { it.trim().uppercase() }
+            .map { if (it.startsWith("ROLE_")) it.removePrefix("ROLE_") else it }
+
+        val roles = normalizedRoles.map { roleName ->
             roleRepo.findByName(roleName)
                 .orElseThrow {
                     ResponseStatusException(HttpStatus.BAD_REQUEST, "Rol no existe: $roleName")
@@ -74,6 +80,32 @@ class AdminUserService(
         }
 
         val finalUser = userRepo.save(saved)
+
+        // ✅ NUEVO: si llegan carreras en CreateUserRequest, se guardan aquí
+        val careerIds = (req.careerIds ?: emptyList()).distinct()
+        if (careerIds.isNotEmpty()) {
+            // valida ids
+            val careers = careerRepo.findAllById(careerIds).associateBy { it.id!! }
+            if (careers.size != careerIds.size) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Una o más carreras no existen")
+            }
+
+            // borra asignaciones previas (por si acaso)
+            userCareerRepo.deleteAllByUserId(finalUser.id!!)
+
+            careerIds.forEach { cid ->
+                val career = careers[cid]
+                    ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Carrera no existe: $cid")
+
+                userCareerRepo.save(
+                    UserCareerEntity(
+                        id = UserCareerId(finalUser.id!!, career.id!!),
+                        user = finalUser,
+                        career = career
+                    )
+                )
+            }
+        }
 
         return UserResponse(
             id = finalUser.id!!,
@@ -93,8 +125,9 @@ class AdminUserService(
         val users = if (role.isNullOrBlank()) {
             userRepo.findAll()
         } else {
-            // ✅ CLAVE: traer con roles cargados
-            userRepo.findAllByRoleNameWithRoles(role)
+            // Acepta role con ROLE_ o sin
+            val r = role.trim().uppercase().let { if (it.startsWith("ROLE_")) it.removePrefix("ROLE_") else it }
+            userRepo.findAllByRoleNameWithRoles(r)
         }
 
         return users.map { u ->
@@ -110,7 +143,7 @@ class AdminUserService(
     }
 
     // ==========================
-    // ASIGNAR CARRERAS A USUARIO
+    // ASIGNAR CARRERAS A USUARIO (EDITAR)
     // ==========================
     @Transactional
     fun assignCareers(userId: Long, req: AssignCareersRequest) {

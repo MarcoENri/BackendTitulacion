@@ -4,7 +4,7 @@ import com.example.Aplicativo_web.dto.ImportBatchResponse
 import com.example.Aplicativo_web.service.StudentImportService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 
@@ -16,10 +16,21 @@ class AdminStudentImportController(
 
     @PostMapping("/xlsx")
     @PreAuthorize("hasRole('ADMIN')")
-    fun importXlsx(@RequestParam("file") file: MultipartFile): ResponseEntity<ImportBatchResponse> {
-        // Si luego quieres el uploaded_by real, lo sacamos del username -> app_user.id
-        // Por ahora lo dejamos null o lo resolvemos después.
-        val res = importService.importXlsx(file, uploadedByUserId = null)
+    fun importXlsx(
+        auth: Authentication,
+        @RequestParam("file") file: MultipartFile,
+        @RequestParam("academicPeriodId", required = false) academicPeriodId: Long?
+    ): ResponseEntity<ImportBatchResponse> {
+
+        val uploadedByUserId: Long? = null
+
+        val res = importService.importXlsx(
+            file = file,
+            uploadedByUserId = uploadedByUserId,
+            academicPeriodId = academicPeriodId
+        )
+
         return ResponseEntity.ok(res)
     }
+
 }

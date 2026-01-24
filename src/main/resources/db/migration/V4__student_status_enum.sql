@@ -1,0 +1,2 @@
+ALTER TABLE student
+ALTER COLUMN status TYPE VARCHAR(30);

@@ -24,7 +24,7 @@ class StudentEmailService(
 ) {
 
     @Transactional
-    fun sendToStudent(studentId: Long, subject: String, body: String, senderUsername: String) {
+    fun sendToStudent(studentId: Long, subject: String, body: String, senderUsernameOrEmail: String) {
 
         if (!mailEnabled) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Envío de correo deshabilitado en configuración")
@@ -38,8 +38,9 @@ class StudentEmailService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "El estudiante no tiene email")
         }
 
-        val senderUser = userRepo.findByUsername(senderUsername)
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no existe")
+        val senderUser = userRepo
+            .findByUsernameIgnoreCaseOrEmailIgnoreCase(senderUsernameOrEmail, senderUsernameOrEmail)
+            .orElseThrow { ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no existe") }
 
         val subjectTrim = subject.trim()
         val bodyTrim = body.trim()
@@ -61,9 +62,8 @@ class StudentEmailService(
         try {
             val msg = SimpleMailMessage()
             msg.setTo(toEmail)
-            msg.from = fromEmail // ✅ importante
+            msg.from = fromEmail
             msg.subject = subjectTrim
-
             msg.text = """
                 $bodyTrim
 
@@ -72,10 +72,10 @@ class StudentEmailService(
             """.trimIndent()
 
             mailSender.send(msg)
-
             emailLogRepo.save(log)
+
         } catch (ex: Exception) {
-            ex.printStackTrace() // ✅ AHORA verás el error real en consola
+            ex.printStackTrace()
 
             log.status = "FAILED"
             log.errorMessage = ex.message

@@ -3,6 +3,7 @@ package com.example.Aplicativo_web.service
 import com.example.Aplicativo_web.dto.*
 import com.example.Aplicativo_web.entity.IncidentEntity
 import com.example.Aplicativo_web.entity.ObservationEntity
+import com.example.Aplicativo_web.entity.enums.StudentStatus
 import com.example.Aplicativo_web.repository.*
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -13,36 +14,39 @@ import java.time.LocalDateTime
 @Service
 class CoordinatorStudentsService(
     private val userRepo: AppUserRepository,
-    private val userCareerRepo: UserCareerRepository,
     private val studentRepo: StudentRepository,
     private val incidentRepo: IncidentRepository,
-    private val observationRepo: ObservationRepository
+    private val observationRepo: ObservationRepository,
+    private val academicPeriodRepo: AcademicPeriodRepository
 ) {
 
-    // -----------------------
-    // helpers
-    // -----------------------
-    private fun getCoordinator(username: String) =
-        userRepo.findByUsername(username)
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no existe")
+    // ✅ DEJA SOLO UNA (username OR email)
+    private fun getCoordinator(input: String) =
+        userRepo.findByUsernameIgnoreCaseOrEmailIgnoreCase(input, input)
+            .orElseThrow { ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario no existe") }
 
-    private fun ensureCanManageStudent(coordinatorId: Long, studentCareerId: Long) {
-        val allowed = userCareerRepo.findCareerIdsByUserId(coordinatorId)
-        if (!allowed.contains(studentCareerId)) {
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes gestionar estudiantes de otra carrera")
-        }
+    private fun resolvePeriodId(periodId: Long?): Long {
+        if (periodId != null) return periodId
+
+        val active = academicPeriodRepo
+            .findFirstByIsActiveTrueOrderByStartDateDesc()
+            .orElseThrow {
+                ResponseStatusException(HttpStatus.BAD_REQUEST, "No hay período académico activo")
+            }
+
+        return active.id!!
     }
 
     // -----------------------
-    // LIST
+    // LIST (SOLO MIS ESTUDIANTES DEL PERIODO)
     // -----------------------
-    fun listMyStudents(username: String): List<Map<String, Any?>> {
-        val user = getCoordinator(username)
+    fun listMyStudents(username: String, periodId: Long?): List<Map<String, Any?>> {
+        val pid = resolvePeriodId(periodId)
+        val coordinator = getCoordinator(username)
 
-        val careerIds = userCareerRepo.findCareerIdsByUserId(user.id!!)
-        if (careerIds.isEmpty()) return emptyList()
+        val students = studentRepo.findAllByCoordinatorIdAndAcademicPeriodId(coordinator.id!!, pid)
 
-        return studentRepo.findAllByCareerIds(careerIds).map { s ->
+        return students.map { s ->
             mapOf(
                 "id" to s.id,
                 "dni" to s.dni,
@@ -54,37 +58,29 @@ class CoordinatorStudentsService(
                 "modality" to s.modality,
                 "career" to s.career?.name,
                 "titulationType" to s.titulationType,
-                "status" to s.status,
-
-                // ✅ IDs
+                "status" to s.status.name,
                 "tutorId" to s.tutor?.id,
                 "coordinatorId" to s.coordinator?.id,
-
-                // ✅ NUEVO: nombres (para que el frontend muestre fullName y no el id)
                 "tutorName" to s.tutor?.fullName,
                 "tutorUsername" to s.tutor?.username,
                 "coordinatorName" to s.coordinator?.fullName,
                 "coordinatorUsername" to s.coordinator?.username,
-
                 "thesisProject" to s.thesisProject,
-                "thesisProjectSetAt" to s.thesisProjectSetAt
+                "thesisProjectSetAt" to s.thesisProjectSetAt,
+                "incidentCount" to incidentRepo.countByStudentId(s.id!!),
+                "observationCount" to observationRepo.countByStudentId(s.id!!)
             )
         }
     }
 
     // -----------------------
-    // DETAIL
+    // DETAIL (SOLO SI ES MIO Y DEL PERIODO)
     // -----------------------
-    fun getDetail(username: String, studentId: Long): StudentDetailDto {
-        val user = getCoordinator(username)
+    fun getDetail(username: String, studentId: Long, periodId: Long): StudentDetailDto {
+        val coordinator = getCoordinator(username)
 
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(user.id!!, careerId)
+        val student = studentRepo.findByIdAndCoordinatorIdAndAcademicPeriodId(studentId, coordinator.id!!, periodId)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes ver un estudiante que no es tuyo o no es del período")
 
         val incidents = incidentRepo.findAllByStudent_Id(studentId).map {
             IncidentDto(
@@ -119,13 +115,11 @@ class CoordinatorStudentsService(
             modality = student.modality,
             career = student.career?.name ?: "-",
             titulationType = student.titulationType,
-            status = student.status,
-
+            status = student.status.name,
             tutorId = student.tutor?.id,
             coordinatorId = student.coordinator?.id,
             thesisProject = student.thesisProject,
             thesisProjectSetAt = student.thesisProjectSetAt,
-
             incidentCount = incidents.size.toLong(),
             observationCount = observations.size.toLong(),
             incidents = incidents,
@@ -134,19 +128,14 @@ class CoordinatorStudentsService(
     }
 
     // -----------------------
-    // ASSIGN PROJECT + TUTOR
+    // ASSIGN PROJECT + TUTOR (SOLO SI ES MIO Y DEL PERIODO)
     // -----------------------
     @Transactional
-    fun assignProject(username: String, studentId: Long, req: AssignProjectRequest) {
+    fun assignProject(username: String, studentId: Long, periodId: Long, req: AssignProjectRequest) {
         val coordinator = getCoordinator(username)
 
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(coordinator.id!!, careerId)
+        val student = studentRepo.findByIdAndCoordinatorIdAndAcademicPeriodId(studentId, coordinator.id!!, periodId)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes asignar proyecto a un estudiante que no es tuyo o no es del período")
 
         val tutor = userRepo.findById(req.tutorId)
             .orElseThrow { ResponseStatusException(HttpStatus.BAD_REQUEST, "Tutor no existe") }
@@ -154,25 +143,19 @@ class CoordinatorStudentsService(
         student.thesisProject = req.projectName.trim()
         student.thesisProjectSetAt = LocalDateTime.now()
         student.tutor = tutor
-        student.coordinator = coordinator
 
         studentRepo.save(student)
     }
 
     // -----------------------
-    // CREATE INCIDENT (max 3 => REPROBADO)
+    // CREATE INCIDENT (SOLO SI ES MIO Y DEL PERIODO)
     // -----------------------
     @Transactional
-    fun createIncident(username: String, studentId: Long, req: CreateIncidentRequest) {
+    fun createIncident(username: String, studentId: Long, periodId: Long, req: CreateIncidentRequest) {
         val coordinator = getCoordinator(username)
 
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(coordinator.id!!, careerId)
+        val student = studentRepo.findByIdAndCoordinatorIdAndAcademicPeriodId(studentId, coordinator.id!!, periodId)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes gestionar incidencias de un estudiante que no es tuyo o no es del período")
 
         val incident = IncidentEntity(
             student = student,
@@ -185,28 +168,24 @@ class CoordinatorStudentsService(
         )
         incidentRepo.save(incident)
 
-        val count = incidentRepo.countByStudent_Id(studentId)
-        if (count >= 3 && student.status != "REPROBADO") {
-            student.status = "REPROBADO"
+        val count = incidentRepo.countByStudentId(studentId)
+
+        if (count >= 3 && student.status != StudentStatus.REPROBADO) {
+            student.status = StudentStatus.REPROBADO
             student.notAptReason = "Acumuló $count incidencias"
             studentRepo.save(student)
         }
     }
 
     // -----------------------
-    // CREATE OBSERVATION
+    // CREATE OBSERVATION (SOLO SI ES MIO Y DEL PERIODO)
     // -----------------------
     @Transactional
-    fun createObservation(username: String, studentId: Long, req: CreateObservationRequest) {
+    fun createObservation(username: String, studentId: Long, periodId: Long, req: CreateObservationRequest) {
         val coordinator = getCoordinator(username)
 
-        val student = studentRepo.findById(studentId)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Estudiante no existe") }
-
-        val careerId = student.career?.id
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Estudiante sin carrera")
-
-        ensureCanManageStudent(coordinator.id!!, careerId)
+        val student = studentRepo.findByIdAndCoordinatorIdAndAcademicPeriodId(studentId, coordinator.id!!, periodId)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes registrar observaciones de un estudiante que no es tuyo o no es del período")
 
         val obs = ObservationEntity(
             student = student,
@@ -216,5 +195,82 @@ class CoordinatorStudentsService(
             authorUserId = coordinator.id
         )
         observationRepo.save(obs)
+    }
+
+    // -----------------------
+    // UPDATE INCIDENT
+    // -----------------------
+    @Transactional
+    fun updateIncident(username: String, studentId: Long, incidentId: Long, periodId: Long, req: UpdateIncidentRequest) {
+        val coordinator = getCoordinator(username)
+
+        val student = studentRepo.findByIdAndCoordinatorIdAndAcademicPeriodId(studentId, coordinator.id!!, periodId)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes editar incidencias de un estudiante que no es tuyo o no es del período")
+
+        val incident = incidentRepo.findById(incidentId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Incidencia no existe") }
+
+        if (incident.student?.id != student.id) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "La incidencia no pertenece a este estudiante")
+        }
+
+        incident.stage = req.stage.trim()
+        incident.date = req.date
+        incident.reason = req.reason.trim()
+        incident.action = req.action.trim()
+        incident.updatedAt = LocalDateTime.now()
+
+        incidentRepo.save(incident)
+    }
+
+    // -----------------------
+    // UPDATE OBSERVATION
+    // -----------------------
+    @Transactional
+    fun updateObservation(username: String, studentId: Long, observationId: Long, periodId: Long, req: UpdateObservationRequest) {
+        val coordinator = getCoordinator(username)
+
+        val student = studentRepo.findByIdAndCoordinatorIdAndAcademicPeriodId(studentId, coordinator.id!!, periodId)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes editar observaciones de un estudiante que no es tuyo o no es del período")
+
+        val obs = observationRepo.findById(observationId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Observación no existe") }
+
+        if (obs.student?.id != student.id) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "La observación no pertenece a este estudiante")
+        }
+
+        obs.text = req.text.trim()
+        obs.updatedAt = LocalDateTime.now()
+
+        observationRepo.save(obs)
+    }
+
+    // -----------------------
+    // DELETE INCIDENT
+    // -----------------------
+    @Transactional
+    fun deleteIncident(username: String, studentId: Long, incidentId: Long, periodId: Long) {
+        val coordinator = getCoordinator(username)
+
+        val student = studentRepo.findByIdAndCoordinatorIdAndAcademicPeriodId(studentId, coordinator.id!!, periodId)
+            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "No puedes eliminar incidencias de un estudiante que no es tuyo o no es del período")
+
+        val incident = incidentRepo.findById(incidentId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Incidencia no existe") }
+
+        if (incident.student?.id != student.id) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Incidencia no pertenece al estudiante")
+        }
+
+        incidentRepo.delete(incident)
+
+        val remaining = incidentRepo.countByStudentId(student.id!!)
+
+        if (remaining < 3 && student.status == StudentStatus.REPROBADO) {
+            student.status = StudentStatus.EN_CURSO
+            student.notAptReason = null
+            studentRepo.save(student)
+        }
     }
 }

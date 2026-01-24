@@ -48,16 +48,16 @@ spring:
     protocol: smtp
     host: smtp.gmail.com
     port: 587
-    username: "TU_CORREO@gmail.com"
-    password: "TU_APP_PASSWORD"   # ✅ App Password (NO tu password normal)
+    username: titulacionsudamericano@gmail.com
+    password: fpicczoauqfbranx
     properties:
       mail:
-        debug: true               # ✅ ver conversación smtp
+        debug: true
         smtp:
           auth: true
           starttls:
             enable: true
-          connectiontimeout: 5000 # ✅ evita “colgadas”
+          connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
 
@@ -73,6 +73,11 @@ logging:
 # CONFIGURACIÓN DE LA APP
 # =========================
 app:
+  # ✅ NUEVA CONFIGURACIÓN PARA RÚBRICAS
+  storage:
+    final-defense:
+      rubrics-dir: uploads/final-defense/rubrics
+
   upload:
     questions-dir: uploads/questions
 
@@ -87,5 +92,5 @@ app:
       password: Admin123*
 
   mail:
-    from: "TU_CORREO@gmail.com"
+    from: titulacionsudamericano@gmail.com
     enabled: true

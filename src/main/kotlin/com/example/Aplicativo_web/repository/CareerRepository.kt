@@ -6,4 +6,6 @@ import java.util.Optional
 
 interface CareerRepository : JpaRepository<CareerEntity, Long> {
     fun findByName(name: String): Optional<CareerEntity>
+    fun findByNameIgnoreCase(name: String): Optional<CareerEntity>
+    fun findByNormalizedName(normalizedName: String): CareerEntity?
 }
