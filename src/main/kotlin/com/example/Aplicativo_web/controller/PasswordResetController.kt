@@ -14,9 +14,13 @@ class PasswordResetController(
 ) {
 
     @PostMapping("/forgot-password")
-    fun forgot(@RequestBody req: ForgotPasswordRequest): ResponseEntity<ForgotPasswordResponse> {
-        return ResponseEntity.ok(resetService.forgotPassword(req.email))
+    fun forgot(@RequestBody req: ForgotPasswordRequest): ResponseEntity<Map<String, String>> {
+        resetService.forgotPassword(req.email)
+        return ResponseEntity.ok(
+            mapOf("message" to "Se ha enviado un correo con las instrucciones")
+        )
     }
+
 
     @PostMapping("/reset-password")
     fun reset(@RequestBody req: ResetPasswordRequest): ResponseEntity<Void> {

@@ -129,8 +129,8 @@ class FinalDefenseAdminService(
         if (req.studentIds.isEmpty() || req.studentIds.size > 2) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes seleccionar 1 o 2 estudiantes")
         }
-        if (req.juryUserIds.distinct().size != 3) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes asignar exactamente 3 jurados distintos")
+        if (req.juryUserIds.distinct().size < 1) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes asignar exactamente al menos un jurado")
         }
 
         val slot = slotRepo.findById(req.slotId)
@@ -208,7 +208,7 @@ class FinalDefenseAdminService(
         )
 
         val juries = userRepo.findAllById(req.juryUserIds).toList()
-        if (juries.size != 3) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Uno o más jurados no existen")
+        if (juries.size < 1) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Uno o más jurados no existen")
 
         juries.forEach { j ->
             bookingJuryRepo.save(

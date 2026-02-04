@@ -8,10 +8,7 @@ import com.example.Aplicativo_web.service.finaldefense.FinalDefenseActaStorageSe
 import com.example.Aplicativo_web.service.finaldefense.FinalDefenseRubricStorageService
 import com.example.Aplicativo_web.service.finaldefense.JuryFinalDefenseService
 import org.springframework.core.io.Resource
-import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
-import org.springframework.http.ResponseEntity
+import org.springframework.http.*
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
@@ -29,19 +26,25 @@ class FinalDefenseJuryController(
 ) {
 
     @GetMapping("/bookings")
-    @PreAuthorize("hasRole('JURY')")
-    fun myBookings(auth: Authentication) = ResponseEntity.ok(service.myBookings(auth.name))
+    @PreAuthorize("hasAnyRole('JURY','TUTOR','DOCENTE','COORDINATOR')")
+    fun myBookings(auth: Authentication) =
+        ResponseEntity.ok(service.myBookings(auth.name))
 
     @GetMapping("/bookings/{id}")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','TUTOR','DOCENTE','COORDINATOR')")
     fun detail(auth: Authentication, @PathVariable id: Long): ResponseEntity<Map<String, Any>> {
-        val dto = service.bookingDetail(id, auth.name)
-        val evs = service.listEvaluations(id, auth.name)
-        return ResponseEntity.ok(mapOf("booking" to dto, "evaluations" to evs))
+        val booking = service.bookingDetail(id, auth.name)
+        val evaluations = service.listEvaluations(id, auth.name)
+        return ResponseEntity.ok(
+            mapOf(
+                "booking" to booking,
+                "evaluations" to evaluations
+            )
+        )
     }
 
     @PostMapping("/bookings/{id}/evaluate")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','TUTOR','DOCENTE','COORDINATOR')")
     fun evaluate(
         auth: Authentication,
         @PathVariable id: Long,
@@ -49,53 +52,48 @@ class FinalDefenseJuryController(
     ): ResponseEntity<FinalDefenseEvaluationDto> =
         ResponseEntity.ok(service.evaluate(id, req, auth.name))
 
-    // ✅ ACTA PDF: si ya está guardada en disco, usarla; si no, generar en caliente
+    // ✅ ACTA PDF
     @GetMapping("/bookings/{id}/acta.pdf")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','TUTOR','DOCENTE','COORDINATOR')")
     fun acta(@PathVariable id: Long): ResponseEntity<ByteArray> {
+
         val booking = bookingRepo.findById(id)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Booking no existe") }
 
-        val actaFile = booking.actaPath?.trim()
-
-        val pdfBytes: ByteArray = if (!actaFile.isNullOrBlank()) {
-            val p = actaStorage.resolvePath(actaFile)
-            if (!Files.exists(p)) {
-                // si no existe en disco, regeneramos
-                pdfService.buildActaPdf(id)
-            } else {
-                Files.readAllBytes(p)
-            }
-        } else {
-            pdfService.buildActaPdf(id)
-        }
+        val bytes = booking.actaPath?.let {
+            val path = actaStorage.resolvePath(it)
+            if (Files.exists(path)) Files.readAllBytes(path)
+            else pdfService.buildActaPdf(id)
+        } ?: pdfService.buildActaPdf(id)
 
         return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=acta_final_defense_$id.pdf")
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=acta_final_$id.pdf")
             .contentType(MediaType.APPLICATION_PDF)
-            .body(pdfBytes)
+            .body(bytes)
     }
 
     // ✅ RÚBRICA PDF
     @GetMapping("/bookings/{id}/rubric.pdf")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','TUTOR','DOCENTE','COORDINATOR')")
     fun rubric(@PathVariable id: Long): ResponseEntity<Resource> {
+
         val booking = bookingRepo.findById(id)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Booking no existe") }
 
-        val slot = booking.slot ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking sin slot")
-        val window = slot.window ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Slot sin ventana")
+        val window = booking.slot?.window
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking sin ventana")
 
-        val stored = window.rubricPath?.trim()
-        if (stored.isNullOrBlank()) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Esta ventana aún no tiene rúbrica subida")
-        }
+        val path = window.rubricPath
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Ventana sin rúbrica")
 
-        val resource = rubricStorage.loadAsResource(stored)
+        val resource = rubricStorage.loadAsResource(path)
 
         return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=rubrica_window_${window.id}.pdf")
             .contentType(MediaType.APPLICATION_PDF)
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "inline; filename=rubrica_window_${window.id}.pdf"
+            )
             .body(resource)
     }
 }

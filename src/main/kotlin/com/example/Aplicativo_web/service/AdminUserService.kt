@@ -56,7 +56,7 @@ class AdminUserService(
 
         val saved = userRepo.save(user)
 
-        // ✅ Aceptar roles con o sin prefijo ROLE_
+        // ✅ aceptar roles con o sin ROLE_
         val normalizedRoles = req.roles
             .distinct()
             .map { it.trim().uppercase() }
@@ -81,16 +81,15 @@ class AdminUserService(
 
         val finalUser = userRepo.save(saved)
 
-        // ✅ NUEVO: si llegan carreras en CreateUserRequest, se guardan aquí
+        // ✅ guardar carreras si llegan
         val careerIds = (req.careerIds ?: emptyList()).distinct()
         if (careerIds.isNotEmpty()) {
-            // valida ids
+
             val careers = careerRepo.findAllById(careerIds).associateBy { it.id!! }
             if (careers.size != careerIds.size) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Una o más carreras no existen")
             }
 
-            // borra asignaciones previas (por si acaso)
             userCareerRepo.deleteAllByUserId(finalUser.id!!)
 
             careerIds.forEach { cid ->
@@ -107,14 +106,7 @@ class AdminUserService(
             }
         }
 
-        return UserResponse(
-            id = finalUser.id!!,
-            username = finalUser.username,
-            fullName = finalUser.fullName,
-            email = finalUser.email,
-            enabled = finalUser.enabled,
-            roles = finalUser.roles.mapNotNull { it.role?.name }
-        )
+        return toResponse(finalUser)
     }
 
     // ==========================
@@ -122,28 +114,40 @@ class AdminUserService(
     // ==========================
     @Transactional(readOnly = true)
     fun listUsers(role: String?): List<UserResponse> {
+
         val users = if (role.isNullOrBlank()) {
             userRepo.findAll()
         } else {
-            // Acepta role con ROLE_ o sin
-            val r = role.trim().uppercase().let { if (it.startsWith("ROLE_")) it.removePrefix("ROLE_") else it }
+            val r = role.trim().uppercase().let {
+                if (it.startsWith("ROLE_")) it.removePrefix("ROLE_") else it
+            }
             userRepo.findAllByRoleNameWithRoles(r)
         }
 
-        return users.map { u ->
-            UserResponse(
-                id = u.id!!,
-                username = u.username,
-                fullName = u.fullName,
-                email = u.email,
-                enabled = u.enabled,
-                roles = u.roles.mapNotNull { ur -> ur.role?.name }
-            )
-        }
+        return users.map { toResponse(it) }
+    }
+
+    // ==================================================
+    // ✅ NUEVO: LISTAR JURADOS (FINAL DEFENSE)
+    // ==================================================
+    @Transactional(readOnly = true)
+    fun listJuries(): List<UserResponse> {
+        return userRepo.findAll()
+            .filter { user ->
+                user.roles.any { ur ->
+                    ur.role?.name in setOf(
+                        "JURY",
+                        "TUTOR",
+                        "DOCENTE",
+                        "COORDINATOR"
+                    )
+                }
+            }
+            .map { toResponse(it) }
     }
 
     // ==========================
-    // ASIGNAR CARRERAS A USUARIO (EDITAR)
+    // ASIGNAR CARRERAS
     // ==========================
     @Transactional
     fun assignCareers(userId: Long, req: AssignCareersRequest) {
@@ -178,4 +182,17 @@ class AdminUserService(
             )
         }
     }
+
+    // ==========================
+    // UTIL: MAPEO ÚNICO
+    // ==========================
+    private fun toResponse(user: AppUserEntity): UserResponse =
+        UserResponse(
+            id = user.id!!,
+            username = user.username,
+            fullName = user.fullName,
+            email = user.email,
+            enabled = user.enabled,
+            roles = user.roles.mapNotNull { it.role?.name }
+        )
 }

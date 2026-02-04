@@ -1,6 +1,5 @@
 package com.example.Aplicativo_web.service
 
-import com.example.Aplicativo_web.dto.ForgotPasswordResponse
 import com.example.Aplicativo_web.entity.PasswordResetTokenEntity
 import com.example.Aplicativo_web.repository.AppUserRepository
 import com.example.Aplicativo_web.repository.PasswordResetTokenRepository
@@ -16,11 +15,14 @@ class PasswordResetService(
     private val userRepo: AppUserRepository,
     private val tokenRepo: PasswordResetTokenRepository,
     private val passwordEncoder: PasswordEncoder,
+    private val emailService: EmailService
 ) {
 
-    fun forgotPassword(email: String): ForgotPasswordResponse {
+    fun forgotPassword(email: String) {
         val user = userRepo.findByEmailIgnoreCase(email)
-            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Correo no registrado") }
+            .orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Correo no registrado")
+            }
 
         val token = UUID.randomUUID().toString()
         val expires = LocalDateTime.now().plusMinutes(30)
@@ -34,24 +36,26 @@ class PasswordResetService(
             )
         )
 
-        // ✅ Para tesis/pruebas: devolvemos el token.
-        // En producción: aquí mandarías email con el link.
-        return ForgotPasswordResponse(
-            message = "Token generado (válido 30 min).",
-            token = token
-        )
+        val resetLink = "http://localhost:5173/reset-password?token=$token"
+        emailService.sendResetPasswordEmail(user.email, resetLink)
     }
 
     fun resetPassword(token: String, newPassword: String) {
         if (newPassword.length < 6) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseña debe tener al menos 6 caracteres")
+            throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "La contraseña debe tener al menos 6 caracteres"
+            )
         }
 
         val t = tokenRepo.findByToken(token)
-            .orElseThrow { ResponseStatusException(HttpStatus.BAD_REQUEST, "Token inválido") }
+            .orElseThrow {
+                ResponseStatusException(HttpStatus.BAD_REQUEST, "Token inválido")
+            }
 
         if (t.used) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Token ya usado")
-        if (t.expiresAt.isBefore(LocalDateTime.now())) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Token expirado")
+        if (t.expiresAt.isBefore(LocalDateTime.now()))
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Token expirado")
 
         val user = t.user ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Token sin usuario")
 

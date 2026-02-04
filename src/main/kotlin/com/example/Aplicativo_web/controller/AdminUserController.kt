@@ -37,4 +37,8 @@ class AdminUserController(
         adminUserService.assignCareers(id, req)
         return ResponseEntity.ok().build()
     }
+    @GetMapping("/juries")
+    @PreAuthorize("hasRole('ADMIN')")
+    fun listJuries(): ResponseEntity<List<UserResponse>> =
+        ResponseEntity.ok(adminUserService.listJuries())
 }

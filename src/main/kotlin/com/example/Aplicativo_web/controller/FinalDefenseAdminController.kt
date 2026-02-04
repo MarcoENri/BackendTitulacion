@@ -21,12 +21,12 @@ class FinalDefenseAdminController(
 
     @PostMapping("/windows")
     @PreAuthorize("hasRole('ADMIN')")
-    fun createWindow(@RequestBody req: CreateFinalDefenseWindowRequest): ResponseEntity<FinalDefenseWindowDto> =
+    fun createWindow(@RequestBody req: CreateFinalDefenseWindowRequest) =
         ResponseEntity.ok(service.createWindow(req))
 
     @GetMapping("/windows")
     @PreAuthorize("hasRole('ADMIN')")
-    fun listWindows(@RequestParam(required = false) periodId: Long?): ResponseEntity<List<FinalDefenseWindowDto>> =
+    fun listWindows(@RequestParam(required = false) periodId: Long?) =
         ResponseEntity.ok(service.listWindows(periodId))
 
     @PostMapping("/windows/{id}/close")
@@ -41,12 +41,11 @@ class FinalDefenseAdminController(
     fun createSlot(
         @PathVariable windowId: Long,
         @RequestBody req: CreateFinalDefenseSlotRequest
-    ): ResponseEntity<FinalDefenseSlotDto> =
-        ResponseEntity.ok(service.createSlot(windowId, req))
+    ) = ResponseEntity.ok(service.createSlot(windowId, req))
 
     @GetMapping("/windows/{windowId}/slots")
     @PreAuthorize("hasRole('ADMIN')")
-    fun listSlots(@PathVariable windowId: Long): ResponseEntity<List<FinalDefenseSlotDto>> =
+    fun listSlots(@PathVariable windowId: Long) =
         ResponseEntity.ok(service.listSlots(windowId))
 
     @GetMapping("/careers/{careerId}/students")
@@ -54,32 +53,42 @@ class FinalDefenseAdminController(
     fun listStudents(
         @PathVariable careerId: Long,
         @RequestParam(required = false) periodId: Long?
-    ): ResponseEntity<List<FinalDefenseStudentMiniDto>> =
-        ResponseEntity.ok(service.listStudentsForCareer(careerId, periodId))
+    ) = ResponseEntity.ok(service.listStudentsForCareer(careerId, periodId))
 
     @PostMapping("/bookings")
     @PreAuthorize("hasRole('ADMIN')")
-    fun createBooking(@RequestBody req: CreateFinalDefenseBookingRequest): ResponseEntity<FinalDefenseBookingDto> =
+    fun createBooking(@RequestBody req: CreateFinalDefenseBookingRequest) =
         ResponseEntity.ok(service.createBooking(req))
 
-    // ✅ NUEVO: subir rúbrica PDF a una ventana
+    // ✅ Subir rúbrica PDF
     @PostMapping("/windows/{windowId}/rubric")
     @PreAuthorize("hasRole('ADMIN')")
     fun uploadRubric(
         @PathVariable windowId: Long,
         @RequestParam("file") file: MultipartFile
     ): ResponseEntity<Void> {
-        if (file.isEmpty) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Archivo vacío")
 
-        val ct = file.contentType ?: ""
-        val name = file.originalFilename ?: ""
-        val isPdf = ct.contains("pdf", ignoreCase = true) || name.endsWith(".pdf", ignoreCase = true)
-        if (!isPdf) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo se permite PDF")
+        if (file.isEmpty) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Archivo vacío")
+        }
+
+        val isPdf =
+            file.contentType?.contains("pdf", true) == true ||
+                    file.originalFilename?.endsWith(".pdf", true) == true
+
+        if (!isPdf) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo se permite PDF")
+        }
 
         val window = windowRepo.findById(windowId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "Ventana no existe") }
 
-        val savedPath = rubricStorage.saveRubricPdf(windowId, file.bytes, file.originalFilename)
+        val savedPath = rubricStorage.saveRubricPdf(
+            windowId,
+            file.bytes,
+            file.originalFilename
+        )
+
         window.rubricPath = savedPath
         windowRepo.save(window)
 
