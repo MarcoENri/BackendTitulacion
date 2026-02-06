@@ -84,11 +84,19 @@ class JuryPredefenseService(
     @Transactional(readOnly = true)
     fun listSlots(windowId: Long): List<PredefenseSlotDto> {
         val slots = slotRepo.findAllByWindow_IdOrderByStartsAtAsc(windowId)
-        return slots.map { s ->
-            val booking = bookingRepo.findBySlot_Id(s.id!!)
-            PredefenseSlotDto.from(s, booked = booking != null, bookingId = booking?.id)
+        return slots.map { slot ->
+            val booking = bookingRepo.findBySlot_Id(slot.id!!)
+            val student = booking?.student
+            PredefenseSlotDto.from(
+                slot = slot,
+                booked = booking != null,
+                bookingId = booking?.id,
+                studentId = student?.id,
+                studentName = student?.let { "${it.firstName} ${it.lastName}" }
+            )
         }
     }
+
 
     @Transactional
     fun bookSlot(req: CreatePredefenseBookingRequest, juryUsername: String): PredefenseBookingDto {

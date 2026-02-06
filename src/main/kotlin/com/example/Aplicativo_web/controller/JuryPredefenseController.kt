@@ -14,8 +14,9 @@ class JuryPredefenseController(
     private val service: JuryPredefenseService
 ) {
 
+    // --- Todos los roles pueden ver ---
     @GetMapping("/careers/{careerId}/students")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','COORDINATOR','TUTOR')")
     fun listStudentsByCareer(
         @PathVariable careerId: Long,
         @RequestParam(required = false) periodId: Long?
@@ -24,7 +25,7 @@ class JuryPredefenseController(
     }
 
     @GetMapping("/careers/{careerId}/windows")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','COORDINATOR','TUTOR')")
     fun listActiveWindows(
         @PathVariable careerId: Long,
         @RequestParam(required = false) periodId: Long?
@@ -33,13 +34,14 @@ class JuryPredefenseController(
     }
 
     @GetMapping("/windows/{windowId}/slots")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','COORDINATOR','TUTOR')")
     fun listSlots(@PathVariable windowId: Long): ResponseEntity<List<PredefenseSlotDto>> {
         return ResponseEntity.ok(service.listSlots(windowId))
     }
 
+    // --- Solo Jurado y Coordinador pueden crear slots ---
     @PostMapping("/windows/{windowId}/slots")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','COORDINATOR')")
     fun createSlot(
         @PathVariable windowId: Long,
         @RequestParam startsAt: LocalDateTime,
@@ -48,8 +50,9 @@ class JuryPredefenseController(
         return ResponseEntity.ok(service.createSlot(windowId, startsAt, endsAt))
     }
 
+    // --- Solo Jurado y Coordinador pueden reservar ---
     @PostMapping("/bookings")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','COORDINATOR')")
     fun bookSlot(
         auth: Authentication,
         @RequestBody req: CreatePredefenseBookingRequest
@@ -57,14 +60,16 @@ class JuryPredefenseController(
         return ResponseEntity.ok(service.bookSlot(req, auth.name))
     }
 
+    // --- Todos los roles pueden ver observaciones ---
     @GetMapping("/bookings/{bookingId}/observations")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','COORDINATOR','TUTOR')")
     fun listObservations(@PathVariable bookingId: Long): ResponseEntity<List<PredefenseObservationDto>> {
         return ResponseEntity.ok(service.listObservations(bookingId))
     }
 
+    // --- Todos los roles pueden enviar observaciones ---
     @PostMapping("/bookings/{bookingId}/observations")
-    @PreAuthorize("hasRole('JURY')")
+    @PreAuthorize("hasAnyRole('JURY','COORDINATOR','TUTOR')")
     fun createObservation(
         auth: Authentication,
         @PathVariable bookingId: Long,
@@ -73,3 +78,7 @@ class JuryPredefenseController(
         return ResponseEntity.ok(service.createObservation(bookingId, req, auth.name))
     }
 }
+
+
+
+

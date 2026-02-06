@@ -111,6 +111,7 @@ data class FinalDefenseBookingDto(
 data class FinalDefenseEvaluationDto(
     val id: Long,
     val bookingId: Long,
+    val studentId: Long,
     val juryUserId: Long,
     val juryName: String,
     val rubricScore: Int,
@@ -120,16 +121,19 @@ data class FinalDefenseEvaluationDto(
     val createdAt: LocalDateTime
 ) {
     companion object {
-        fun from(e: FinalDefenseEvaluationEntity) = FinalDefenseEvaluationDto(
-            id = e.id!!,
-            bookingId = e.booking!!.id!!,
-            juryUserId = e.juryUser!!.id!!,
-            juryName = e.juryUser!!.fullName,
-            rubricScore = e.rubricScore,
-            extraScore = e.extraScore,
-            totalScore = e.totalScore,
-            observations = e.observations,
-            createdAt = e.createdAt
-        )
+        fun from(e: FinalDefenseEvaluationEntity) =
+            FinalDefenseEvaluationDto(
+                id = e.id!!,
+                bookingId = e.booking.id!!,
+                studentId = e.student.id!!,
+                juryUserId = e.juryUser.id!!,
+                juryName = e.juryUser.fullName,
+                rubricScore = e.rubricScore,
+                extraScore = e.extraScore,
+                totalScore = e.totalScore,
+                observations = e.observations,
+                createdAt = e.createdAt
+            )
     }
 }
+

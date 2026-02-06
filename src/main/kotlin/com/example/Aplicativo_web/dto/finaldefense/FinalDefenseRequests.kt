@@ -22,7 +22,8 @@ data class CreateFinalDefenseBookingRequest(
 )
 
 data class CreateFinalDefenseEvaluationRequest(
-    val rubricScore: Int,   // 0..50
-    val extraScore: Int,    // 0..50
-    val observations: String? = null
+    val studentId: Long,
+    val rubricScore: Int,
+    val extraScore: Int,
+    val observations: String?
 )

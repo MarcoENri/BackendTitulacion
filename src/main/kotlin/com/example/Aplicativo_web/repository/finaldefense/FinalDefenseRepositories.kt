@@ -95,10 +95,28 @@ interface FinalDefenseBookingJuryRepository : JpaRepository<FinalDefenseBookingJ
     fun findAllByBookingIdFetchJury(@Param("bookingId") bookingId: Long): List<FinalDefenseBookingJuryEntity>
 
     fun findAllByBooking_Id(bookingId: Long): List<FinalDefenseBookingJuryEntity>
+    fun countByBooking_Id(bookingId: Long): Long
+
 }
 
-interface FinalDefenseEvaluationRepository : JpaRepository<FinalDefenseEvaluationEntity, Long> {
-    fun findAllByBooking_IdOrderByCreatedAtAsc(bookingId: Long): List<FinalDefenseEvaluationEntity>
-    fun findByBooking_IdAndJuryUser_Id(bookingId: Long, juryUserId: Long): FinalDefenseEvaluationEntity?
+interface FinalDefenseEvaluationRepository :
+    JpaRepository<FinalDefenseEvaluationEntity, Long> {
+
+    fun findAllByBooking_IdOrderByCreatedAtAsc(
+        bookingId: Long
+    ): List<FinalDefenseEvaluationEntity>
+
+    fun findByBooking_IdAndJuryUser_IdAndStudent_Id(
+        bookingId: Long,
+        juryUserId: Long,
+        studentId: Long
+    ): FinalDefenseEvaluationEntity?
+
+    fun findAllByBooking_IdAndStudent_Id(
+        bookingId: Long,
+        studentId: Long
+    ): List<FinalDefenseEvaluationEntity>
+
     fun countByBooking_Id(bookingId: Long): Long
 }
+

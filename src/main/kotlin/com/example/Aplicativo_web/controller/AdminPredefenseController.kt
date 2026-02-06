@@ -15,19 +15,25 @@ class AdminPredefenseController(
 
     @PostMapping("/windows")
     @PreAuthorize("hasRole('ADMIN')")
-    fun createWindow(@RequestBody req: CreatePredefenseWindowRequest): ResponseEntity<PredefenseWindowDto> {
+    fun createWindow(
+        @RequestBody req: CreatePredefenseWindowRequest
+    ): ResponseEntity<PredefenseWindowDto> {
         return ResponseEntity.ok(service.createWindow(req))
     }
 
     @GetMapping("/windows")
     @PreAuthorize("hasRole('ADMIN')")
-    fun listWindows(@RequestParam(required = false) periodId: Long?): ResponseEntity<List<PredefenseWindowDto>> {
+    fun listWindows(
+        @RequestParam(required = false) periodId: Long?
+    ): ResponseEntity<List<PredefenseWindowDto>> {
         return ResponseEntity.ok(service.listWindows(periodId))
     }
 
     @PostMapping("/windows/{id}/close")
     @PreAuthorize("hasRole('ADMIN')")
-    fun closeWindow(@PathVariable id: Long): ResponseEntity<Map<String, Any?>> {
+    fun closeWindow(
+        @PathVariable id: Long
+    ): ResponseEntity<Map<String, Any?>> {
         return ResponseEntity.ok(service.closeWindow(id))
     }
 }
