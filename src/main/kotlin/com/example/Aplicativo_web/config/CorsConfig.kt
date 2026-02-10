@@ -13,7 +13,7 @@ class CorsConfig {
     fun corsFilter(): CorsFilter {
         val configuration = CorsConfiguration()
         // --- CORRECCIÓN CRÍTICA AQUÍ ---
-        configuration.allowedOrigins = listOf("http://localhost:5173", "http://localhost:5183","http://192.168.20.222:5173","http://192.168.1.39:5173", "http://26.146.215.130") // ¡Ahora son dos elementos en la lista!
+        configuration.allowedOrigins = listOf("http://localhost:3000","http://localhost:5173", "http://localhost:5183","http://192.168.20.222:5173","http://192.168.1.39:5173", "http://26.146.215.130") // ¡Ahora son dos elementos en la lista!
         // -----------------------------
         configuration.allowedMethods = listOf("HEAD", "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
         configuration.allowCredentials = true
