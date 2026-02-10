@@ -14,7 +14,7 @@ class CorsConfig {
         val configuration = CorsConfiguration()
          configuration.allowedOrigins = listOf(
             "http://localhost:5173",
-            "https://fronteddetitulacion-2ytz-bk8mbivyd-marcoenris-projects.vercel.app"
+            "https://fronteddetitulacion.vercel.app"
         ) // ¡Ahora son dos elementos en la lista!
         // -----------------------------
         configuration.allowedMethods = listOf("HEAD", "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
